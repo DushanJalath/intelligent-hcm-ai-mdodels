@@ -10,10 +10,8 @@ from database import collection_leave_predictions_dataset
 router = APIRouter()
 
 
-# Load the dataset
 @router.post("/train_model")
 async def train_model():
-    # Load the dataset
     data = []
     for attendance in collection_leave_predictions_dataset.find():
         attendanceData = {
@@ -26,25 +24,17 @@ async def train_model():
         }
         data.append(attendanceData)
     
-    # Create a DataFrame
     df = pd.DataFrame(data)
     
-    # Split the data into features (X) and target variable (y)
     X = df[["Previous day is a holiday", "Is Holiday", "Next day is a holiday", "Day of the week", "Company Total Employee Count"]]
     y = df["Total Employee attendance Count"]
     
-    # Split the data into training and testing sets
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     
-    # Initialize the Random Forest Regression model
     rf_model = RandomForestRegressor(n_estimators=100, random_state=42)
-    
-    # Train the model
+
     rf_model.fit(X_train, y_train)
-    
-    # Save the trained model
-    joblib.dump(rf_model, "rfmodel_leave_updating.joblib")
-    
+    joblib.dump(rf_model, "rfmodel_leave_updating.joblib") 
     return {"message": "Model trained and saved successfully"}
 
 

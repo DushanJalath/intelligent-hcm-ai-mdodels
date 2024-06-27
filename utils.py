@@ -1,13 +1,12 @@
 import bcrypt
-import jwt
-from jwt import PyJWTError, decode as jwt_decode, encode as jwt_encode
+from jose import jwt
+from jose.exceptions import JWTError
 from fastapi import Depends
 from datetime import datetime, timedelta
 from fastapi import HTTPException
 from config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 from database import collection_user
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-import joblib
+from fastapi.security import OAuth2PasswordBearer
 import pandas as pd
 
 def create_access_token(data: dict, expires_delta: timedelta):
@@ -45,7 +44,7 @@ def decode_access_token(token: str):
         if email is None:
             raise HTTPException(status_code=401, detail="Invalid token")
         return email
-    except PyJWTError:
+    except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
 

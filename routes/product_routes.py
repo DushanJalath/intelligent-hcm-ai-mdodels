@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, Depends, HTTPException, File, UploadFile
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 import joblib
 from datetime import datetime, timedelta
@@ -9,16 +9,14 @@ from fastapi.responses import JSONResponse, StreamingResponse
 import os
 from functools import lru_cache
 import asyncio
+from datetime import datetime, timedelta
 
 router = APIRouter()
 
-# Define your OAuth2 scheme for token authentication
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-# Load the machine learning model once at startup
 @lru_cache()
 def load_model():
-    # rfmodel_leave
     return joblib.load("rfmodel_leave.joblib") 
 
 rf_model = load_model()
@@ -28,14 +26,10 @@ async def predict_attendance(request: PredictionRequest, current_user: User = De
     if current_user.get('user_type') not in ["HR", "Manager"]:
         raise HTTPException(status_code=403, detail="Unauthorized, only HR can predict attendance")
     try:
-        # Predict attendance for the given date
         future_data = await asyncio.to_thread(create_future_data, request.date)
         predicted_attendance = await asyncio.to_thread(rf_model.predict, future_data)
         predicted_attendance_rounded = int(round(predicted_attendance[0]))  # Round to nearest integer
-        
-        # Store prediction in MongoDB
-        # await collection_leave_predictions.insert_one({"date": request.date, "predicted_attendance": predicted_attendance_rounded})
-
+              
         return {"predicted_attendance": predicted_attendance_rounded}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -45,10 +39,8 @@ async def predict_attendance_chart(request: PredictionRequest, current_user: Use
     if current_user.get('user_type') not in ["HR", "Manager"]:
         raise HTTPException(status_code=403, detail="Unauthorized, only HR can approve vacancies")
     try:
-        # Convert the input date to a datetime object
         input_date = datetime.strptime(request.date, '%m%d')
 
-        # Create data for the next 7 days
         prediction_data = []
         for i in range(1, 8):
             next_date = (input_date + timedelta(days=i)).strftime('%m%d')
@@ -60,3 +52,23 @@ async def predict_attendance_chart(request: PredictionRequest, current_user: Use
         return prediction_data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/predictResult/")
+async def predict_result(current_user: User = Depends(get_current_user)):
+    if current_user.get('user_type') not in ["HR", "Manager"]:
+        raise HTTPException(status_code=403, detail="Unauthorized, only HR can predict attendance")
+    try:
+        future_data = await asyncio.to_thread(create_future_data, datetime.now().strftime('%m%d'))
+        today_predicted_attendance = await asyncio.to_thread(rf_model.predict, future_data)
+        predicted_attendance_rounded = int(round(today_predicted_attendance[0]))  # Round to nearest integer
+        
+        Today_Total_Attendance = 180
+        total_empolyee_count =200
+        Today_Total_Leave = total_empolyee_count - Today_Total_Attendance
+
+        Today_Predicted_Leave = total_empolyee_count - predicted_attendance_rounded
+
+        return {"Today_predicted_attendance": predicted_attendance_rounded, "Today_Total_Leave": Today_Total_Leave ,  "Today_Predicted_Leave": Today_Predicted_Leave ,"total_empolyee_count": total_empolyee_count }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
