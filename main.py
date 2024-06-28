@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routes import product_routes, auth_routes
+from routes import routes
 from fastapi.security import OAuth2PasswordBearer
 from AiModel import model_traning
 
@@ -16,8 +16,7 @@ app.add_middleware(
 )
 
 app.include_router(model_traning.router)
-app.include_router(auth_routes.router)
-app.include_router(product_routes.router)
+app.include_router(routes.router)
     
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
