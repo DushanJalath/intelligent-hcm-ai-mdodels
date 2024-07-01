@@ -39,21 +39,6 @@ async def train_model():
 
 
 
-# from fastapi import FastAPI, APIRouter, HTTPException
-# import pandas as pd
-# from sklearn.ensemble import RandomForestRegressor
-# from sklearn.model_selection import train_test_split
-# from sklearn.metrics import mean_squared_error
-# import joblib
-# from pymongo import MongoClient
-# from apscheduler.schedulers.background import BackgroundScheduler
-# import datetime
-
-# # Replace with your MongoDB connection details
-# client = MongoClient("mongodb://localhost:27017/")
-# db = client.your_database_name
-# collection_leave_predictions_dataset = db.collection_leave_predictions_dataset
-
 # app = FastAPI()
 # router = APIRouter()
 

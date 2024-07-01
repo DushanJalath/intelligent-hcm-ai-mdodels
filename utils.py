@@ -5,9 +5,15 @@ from fastapi import Depends
 from datetime import datetime, timedelta
 from fastapi import HTTPException
 from config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
-from database import collection_user
+from database import collection_user,collection_emp_time_rep,collection_leave_predictions_dataset
 from fastapi.security import OAuth2PasswordBearer
 import pandas as pd
+from apscheduler.schedulers.background import BackgroundScheduler
+import logging
+
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def create_access_token(data: dict, expires_delta: timedelta):
     to_encode = data.copy()
@@ -26,16 +32,6 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     encoded_plain_password = plain_password.encode("utf-8")
     encoded_hashed_password = hashed_password.encode("utf-8")
     return bcrypt.checkpw(encoded_plain_password, encoded_hashed_password)
-
-
-# def decode_access_token(token: str):
-#     try:
-#         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-#         return payload
-#     except jwt.ExpiredSignatureError:
-#         raise HTTPException(status_code=401, detail="Token has expired")
-#     except jwt.JWTError:
-#         raise HTTPException(status_code=401, detail="Invalid token")
 
 def decode_access_token(token: str):
     try:
@@ -117,13 +113,10 @@ def is_holiday(date):
         return 0
 
 def create_future_data(date):
-    # Define a fixed year for the calculations
     current_year = pd.Timestamp.now().year
 
-    # Create a full date string with the current year
     full_date_str = f"{current_year}-{date[:2]}-{date[2:]}"
 
-    # Convert the full date string to a datetime object
     future_date_datetime = pd.to_datetime(full_date_str, format='%Y-%m-%d', errors='raise')
     print("Input Date:", future_date_datetime)
 
@@ -132,18 +125,18 @@ def create_future_data(date):
     print("Next Day:", next_day)
     print("Previous Day:", previous_day)
 
-    # Check if next day and previous day are holidays or Sundays
     next_day_holiday = is_holiday(next_day.strftime("%m%d")) or next_day.dayofweek == 6
     previous_day_holiday = is_holiday(previous_day.strftime("%m%d")) or previous_day.dayofweek == 6
     print("Next Day Holiday:", next_day_holiday)
     print("Previous Day Holiday:", previous_day_holiday)
 
-    # Check if the given date is a holiday or a Sunday
     is_holiday_flag = 1 if is_holiday(date) or future_date_datetime.dayofweek == 6 else 0
     print("Is Holiday Flag:", is_holiday_flag)
 
     day_of_week = future_date_datetime.dayofweek
     print("Day of the Week:", day_of_week)
+
+    company_total_employee_count = 200
 
     if previous_day.dayofweek == 6 and next_day_holiday:
         previous_day_holiday = 1
@@ -157,3 +150,31 @@ def create_future_data(date):
     })
 
     return future_data  
+
+def update_leave_prediction_data():
+    today = datetime.now().strftime('%Y-%m-%d')
+    date_mmdd = datetime.now().strftime('%m%d')
+    attendance = collection_emp_time_rep.find({"date": today, "totalWorkMilliSeconds": {"$gt": 0}})
+    total_attendance = attendance.count()
+    print("Total Attendance:", total_attendance)
+
+    future_data = create_future_data(date_mmdd)
+
+    leave_prediction_data = {
+        "Date": int(date_mmdd),
+        "Total Employee attendance Count": total_attendance,
+        "Previous day is a holiday": future_data["Previous day is a holiday"].values[0],
+        "Is Holiday": future_data["Is Holiday"].values[0],
+        "Next day is a holiday": future_data["Next day is a holiday"].values[0],
+        "Day of the week": future_data["Day of the week"].values[0],
+        "Company Total Employee Count": future_data["Company Total Employee Count"].values[0]
+    }
+    collection_leave_predictions_dataset.insert_one(leave_prediction_data)
+    logger.info(f"Updated leave prediction data for {today}.")
+
+
+def schedule_daily_collection():
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(update_leave_prediction_data, 'cron', hour=21, minute=0)
+    scheduler.start()
+    logger.info("Scheduled daily collection at 21:00.")

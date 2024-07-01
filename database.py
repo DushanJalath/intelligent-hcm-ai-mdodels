@@ -8,3 +8,4 @@ database = client.HCM
 collection_user = database["user"] 
 collection_leave_predictions = database["LeavePredictions"]
 collection_leave_predictions_dataset = database["Leave_prediction_dataset"]
+collection_emp_time_rep= database["empTimeReport"]
